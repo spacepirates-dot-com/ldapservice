@@ -1,0 +1,5 @@
+ldap.url=ldap://geneticmail.com:389/ ldap://replica.geneticmail.com:389/
+ldap.base=dc=geneticmail,dc=com
+ldap.manager.dn=cn=Manager,dc=geneticmail,dc=com
+ldap.manager.password=
+

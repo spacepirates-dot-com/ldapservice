@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:security="http://www.springframework.org/schema/security"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+         http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context-3.1.xsd
+         http://www.springframework.org/schema/security
+         http://www.springframework.org/schema/security/spring-security-3.1.xsd">
+
+  <!--
+  http://www.mkyong.com/webservices/jax-rs/jersey-spring-integration-example/
+  -->
+  <context:component-scan base-package="com.spacepirates.ldapservice" />
+
+  <bean id="applicationConfigurer"
+        class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+    <property name="locations" value="/WEB-INF/ldapservice.properties"/>
+  </bean>
+
+  <!-- Spring Security configuration -->
+  <security:ldap-server id="ldapServer" url="${ldap.url}" root="${ldap.base}"
+    manager-dn="${ldap.manager.dn}" manager-password="${ldap.manager.password}"/>
+
+  <!-- annotations for method level security checks, requires aopalliance.jar -->
+  <security:global-method-security pre-post-annotations="enabled"/>
+
+  <security:http use-expressions="true">
+    <security:intercept-url pattern="/admin*" access="hasRole('SiteAdmin')"/>
+    <security:intercept-url pattern="/*" access="isAuthenticated()" />
+    <security:http-basic/>
+  </security:http>
+
+  <security:authentication-manager erase-credentials="false">
+    <security:ldap-authentication-provider server-ref="ldapServer"
+      user-dn-pattern="uid={0},ou=People,${ldap.base}" group-role-attribute="uniqueMember"
+      group-search-base="ou=Roles,${ldap.base}" />
+  </security:authentication-manager>
+
+  <!-- end Spring Security configuration -->
+  <!-- begin Spring LDAP configuration
+  http://static.springsource.org/spring-ldap/site/reference/html/configuration.html
+
+  While the user name (i.e. user DN) and password used for creating an
+  authenticated Context are static by default - the ones set on the
+  ContextSource on startup will be used throughout the lifetime of the
+  ContextSource - there are however several cases in which this is not the
+  desired behaviour. A common scenario is that the principal and credentials of
+  the current user should be used when executing LDAP operations for that user.
+  The default behaviour can be modified by supplying a custom
+  AuthenticationSource implementation to the ContextSource on startup, instead
+  of explicitly specifying the userDn and password. The AuthenticationSource
+  will be queried by the ContextSource for principal and credentials each time
+  an authenticated Context is to be created.
+
+  -->
+  <bean id="ldapContextSource" class="org.springframework.ldap.core.support.LdapContextSource">
+    <property name="url" value="${ldap.url}" />
+    <property name="authenticationSource" ref="springSecurityAuthenticationSource" />
+  </bean>
+
+  <bean id="springSecurityAuthenticationSource"
+    class="org.springframework.security.ldap.authentication.SpringSecurityAuthenticationSource" />
+
+  <!-- end Spring LDAP Configuration -->
+  <!-- Begin LDAP Object Mapping Manager -->
+  <bean id="odmManager"
+        class="org.springframework.ldap.odm.core.impl.OdmManagerImplFactoryBean">
+    <property name="converterManager" ref="converterManager" />
+    <property name="contextSource" ref="ldapContextSource" />
+    <property name="managedClasses">
+      <set>
+        <value>com.spacepirates.ldapservice.entities.Contact</value>
+      </set>
+    </property>
+  </bean>
+
+  <bean id="fromStringConverter"
+    class="org.springframework.ldap.odm.typeconversion.impl.converters.FromStringConverter" />
+  <bean id="toStringConverter"
+    class="org.springframework.ldap.odm.typeconversion.impl.converters.ToStringConverter" />
+  <bean id="converterManager"
+    class="org.springframework.ldap.odm.typeconversion.impl.ConverterManagerFactoryBean">
+    <property name="converterConfig">
+      <set>
+        <bean class="org.springframework.ldap.odm.typeconversion.impl.ConverterManagerFactoryBean$ConverterConfig">
+          <property name="fromClasses">
+            <set>
+              <value>java.lang.String</value>
+            </set>
+          </property>
+          <property name="toClasses">
+            <set>
+              <value>java.lang.Byte</value>
+              <value>java.lang.Short</value>
+              <value>java.lang.Integer</value>
+              <value>java.lang.Long</value>
+              <value>java.lang.Float</value>
+              <value>java.lang.Double</value>
+              <value>java.lang.Boolean</value>
+              <value>org.springframework.ldap.core.DistinguishedName</value>
+            </set>
+          </property>
+          <property name="converter" ref="fromStringConverter" />
+        </bean>
+        <bean class="org.springframework.ldap.odm.typeconversion.impl.ConverterManagerFactoryBean$ConverterConfig">
+          <property name="fromClasses">
+            <set>
+              <value>java.lang.Byte</value>
+              <value>java.lang.Short</value>
+              <value>java.lang.Integer</value>
+              <value>java.lang.Long</value>
+              <value>java.lang.Float</value>
+              <value>java.lang.Double</value>
+              <value>java.lang.Boolean</value>
+              <value>org.springframework.ldap.core.DistinguishedName</value>
+            </set>
+          </property>
+          <property name="toClasses">
+            <set>
+              <value>java.lang.String</value>
+            </set>
+          </property>
+          <property name="converter" ref="toStringConverter" />
+        </bean>
+      </set>
+    </property>
+  </bean>
+  <!-- end LDAP Object Mapping Manager -->
+
+  <!-- my beans -->
+  <bean id="contactDao" class="com.spacepirates.ldapservice.ContactLdapDAO"/>
+</beans>
